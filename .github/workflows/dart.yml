@@ -1,93 +1,118 @@
-name: Build
+name: Build & Release
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - v*
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  build-ios:
-    name: Build & Release
-    runs-on: macos-latest
+  build-and-release-android-apks:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: checkout branch
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v3.12.0
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
         with:
-          distribution: 'oracle'
-          java-version: '17'
+          channel: "stable"
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Java toolchain (Only Android target)
+        uses: actions/setup-java@v4
         with:
-          channel: 'stable'
-          architecture: x64
+          distribution: "temurin"
+          java-version: "17"
 
-      - run: flutter pub get
-
-      - run: flutter build apk --release      
-
-      - run: flutter build appbundle
-
-      - run: pod repo update
-        working-directory: ios
-
-      - run: flutter build ios --release --no-codesign
-
-      - run: |
-          cd build
-          tar -czf ios_build.tar.gz ios
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
         with:
-          name: Releases
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-            build/ios_build.tar.gz
+          cmake-version: "3.18.1"
 
-      - name: Extract version from pubspec.yaml
-        id: extract_version
+      - name: Setup ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Install the CLI tool
+        run: cargo install 'flutter_rust_bridge_codegen'
+
+      - name: Setup Android keystore
         run: |
-          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
-          echo "VERSION=$version" >> $GITHUB_ENV
+          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -di > android/app/upload-keystore.jks
+          echo "${{ secrets.SIGNING_KEY_PROPERTIES }}" > android/key.properties
 
-      - name: Check if Tag Exists
-        id: check_tag
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: build android apks
         run: |
-          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
-            echo "TAG_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "TAG_EXISTS=false" >> $GITHUB_ENV
-          fi
+          flutter build apk --release --split-per-abi
+          cd build/app/outputs/flutter-apk
+          mv app-arm64-v8a-release.apk Mangayomi-${{ github.ref_name }}-android-arm64-v8a.apk
+          mv app-armeabi-v7a-release.apk Mangayomi-${{ github.ref_name }}-android-armeabi-v7a.apk
+          mv app-x86_64-release.apk Mangayomi-${{ github.ref_name }}-android-x86_64.apk
 
-      - name: Modify Tag
-        if: env.TAG_EXISTS == 'true'
-        id: modify_tag
-        run: |
-          new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
-          echo "VERSION=$new_version" >> $GITHUB_ENV
+      - name: upload artifact android apks
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mangayomi-${{ github.ref_name }}-android
+          path: "build/app/outputs/flutter-apk/Mangayomi-*.apk"
 
-      - name: Create Release
+      - name: release packages android apks
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab,build/ios_build.tar.gz"
-          tag: v${{ env.VERSION }}
-          token: ${{ secrets.TOKEN }}
+          artifacts: "build/app/outputs/flutter-apk/Mangayomi-*.apk"
+          allowUpdates: true
 
-      - run: mkdir Payload
-        working-directory: build/ios/iphoneos
+  build-and-release-ios-ipa:
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    steps:
+      # Checkout branch
+      - name: checkout branch
+        uses: actions/checkout@v4
 
-      - run: mv Runner.app/ Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Zip output
-        run: zip -qq -r -9 Flashcards.ipa Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/Flashcards.ipa
-          tag: v1.0.3
-          overwrite: true
-          body: "This is 4th release"
+          channel: "stable"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install the CLI tool
+        run: cargo install 'flutter_rust_bridge_codegen'
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: build ios
+        run: |
+          flutter build ios --release --no-codesign
+          cd build/ios/iphoneos
+          mkdir Payload
+          cd Payload
+          ln -s ../Runner.app
+          cd ..
+          zip -r app-release.ipa Payload
+          mv app-release.ipa Mangayomi-${{ github.ref_name }}-ios.ipa
+
+      - name: upload artifact ios ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mangayomi-${{ github.ref_name }}-ios
+          path: "build/ios/iphoneos/Mangayomi-*.ipa"
+
+      - name: release package ios ipa
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/ios/iphoneos/Mangayomi-*.ipa"
+          allowUpdates: true
