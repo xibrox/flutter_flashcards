@@ -82,6 +82,7 @@ class _LearnPageState extends State<LearnPage>
       floatingActionButton: FloatingActionButton(
         onPressed: _nextCard,
         backgroundColor: Colors.indigo,
+        foregroundColor: Colors.grey[200],
         child: Icon(Icons.arrow_forward),
       ),
     );
