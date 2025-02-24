@@ -1,116 +1,42 @@
-name: Build & Release
+name: iOS-ipa-build
 
 on:
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
-  build-and-release-android-apks:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout branch
-        uses: actions/checkout@v4
-
-      - name: setup flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Java toolchain (Only Android target)
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: "3.18.1"
-
-      - name: Setup ninja
-        uses: seanmiddleditch/gha-setup-ninja@master
-
-      - name: Install the CLI tool
-        run: cargo install 'flutter_rust_bridge_codegen'
-
-      - name: Setup Android keystore
-        run: |
-          echo "${{ secrets.SIGNING_KEY_STORE_BASE64 }}" | base64 -di > android/app/upload-keystore.jks
-          echo "${{ secrets.SIGNING_KEY_PROPERTIES }}" > android/key.properties
-
-      - name: flutter pub get
-        run: flutter pub get
-
-      - name: build android apks
-        run: |
-          flutter build apk --release --split-per-abi
-          cd build/app/outputs/flutter-apk
-          mv app-arm64-v8a-release.apk Mangayomi-${{ github.ref_name }}-android-arm64-v8a.apk
-          mv app-armeabi-v7a-release.apk Mangayomi-${{ github.ref_name }}-android-armeabi-v7a.apk
-          mv app-x86_64-release.apk Mangayomi-${{ github.ref_name }}-android-x86_64.apk
-
-      - name: upload artifact android apks
-        uses: actions/upload-artifact@v4
-        with:
-          name: Mangayomi-${{ github.ref_name }}-android
-          path: "build/app/outputs/flutter-apk/Mangayomi-*.apk"
-
-      - name: release packages android apks
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "build/app/outputs/flutter-apk/Mangayomi-*.apk"
-          allowUpdates: true
-
-  build-and-release-ios-ipa:
-    permissions:
-      contents: write
+  build-ios:
+    name: 🎉 iOS Build
     runs-on: macos-latest
     steps:
-      # Checkout branch
-      - name: checkout branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: setup flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          channel: "stable"
+          channel: 'stable'
+          architecture: x64
+      - run: flutter pub get
+      
 
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - run: pod repo update
+        working-directory: ios
 
-      - name: Install the CLI tool
-        run: cargo install 'flutter_rust_bridge_codegen'
+      - run: flutter build ios --release --no-codesign
 
-      - name: flutter pub get
-        run: flutter pub get
+      - run: mkdir Payload
+        working-directory: build/ios/iphoneos
 
-      - name: build ios
-        run: |
-          flutter build ios --release --no-codesign
-          cd build/ios/iphoneos
-          mkdir Payload
-          cd Payload
-          ln -s ../Runner.app
-          cd ..
-          zip -r app-release.ipa Payload
-          mv app-release.ipa Mangayomi-${{ github.ref_name }}-ios.ipa
+      - run: mv Runner.app/ Payload
+        working-directory: build/ios/iphoneos
 
-      - name: upload artifact ios ipa
-        uses: actions/upload-artifact@v4
+      - name: Zip output
+        run: zip -qq -r -9 Flashcards.ipa Payload
+        working-directory: build/ios/iphoneos
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: Mangayomi-${{ github.ref_name }}-ios
-          path: "build/ios/iphoneos/Mangayomi-*.ipa"
-
-      - name: release package ios ipa
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "build/ios/iphoneos/Mangayomi-*.ipa"
-          allowUpdates: true
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/ios/iphoneos/Flashcards.ipa
+          tag: v1.0.2
+          overwrite: true
+          body: "This is third release"
