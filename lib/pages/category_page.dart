@@ -1,16 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:isar/isar.dart';
 import '../models.dart';
 import 'learn_page.dart';
 
 class CategoryPage extends StatefulWidget {
   final Category category;
-  const CategoryPage({super.key, required this.category});
+  final Isar isar;
+  const CategoryPage({super.key, required this.category, required this.isar});
 
   @override
   _CategoryPageState createState() => _CategoryPageState();
 }
 
 class _CategoryPageState extends State<CategoryPage> {
+  late Category category;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use the category passed from the HomePage.
+    category = widget.category;
+  }
+
+  Future<void> _updateCategory() async {
+    await widget.isar.writeTxn(() async {
+      await widget.isar.categories.put(category);
+    });
+    setState(() {});
+  }
+
   void _addFlashcard() {
     TextEditingController questionController = TextEditingController();
     TextEditingController answerController = TextEditingController();
@@ -18,7 +36,10 @@ class _CategoryPageState extends State<CategoryPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Add Flashcard', style: TextStyle(color: Colors.indigo)),
+          title: Text(
+            'Добавить карточку',
+            style: TextStyle(color: Colors.indigo),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -26,7 +47,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 TextField(
                   controller: questionController,
                   decoration: InputDecoration(
-                    hintText: 'Question',
+                    hintText: 'Вопрос',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -34,7 +55,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 TextField(
                   controller: answerController,
                   decoration: InputDecoration(
-                    hintText: 'Answer',
+                    hintText: 'Ответ',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -43,21 +64,24 @@ class _CategoryPageState extends State<CategoryPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 if (questionController.text.isNotEmpty &&
                     answerController.text.isNotEmpty) {
-                  setState(() {
-                    widget.category.flashcards.add(
-                      Flashcard(
-                        question: questionController.text,
-                        answer: answerController.text,
-                      ),
-                    );
-                  });
+                  final newFlashcard =
+                      Flashcard()
+                        ..question = questionController.text
+                        ..answer = answerController.text;
+                  // Create a modifiable copy of the flashcards list.
+                  final updatedFlashcards = List<Flashcard>.from(
+                    category.flashcards,
+                  );
+                  updatedFlashcards.add(newFlashcard);
+                  category.flashcards = updatedFlashcards;
+                  await _updateCategory();
                 }
                 Navigator.pop(context);
               },
-              child: Text('Add', style: TextStyle(color: Colors.indigo)),
+              child: Text('Добавить', style: TextStyle(color: Colors.indigo)),
             ),
           ],
         );
@@ -65,18 +89,19 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  void _deleteFlashcard(int index) {
-    setState(() {
-      widget.category.flashcards.removeAt(index);
-    });
+  void _deleteFlashcard(int index) async {
+    final updatedFlashcards = List<Flashcard>.from(category.flashcards);
+    updatedFlashcards.removeAt(index);
+    category.flashcards = updatedFlashcards;
+    await _updateCategory();
   }
 
   void _startLearning() {
-    if (widget.category.flashcards.isEmpty) return;
+    if (category.flashcards.isEmpty) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LearnPage(flashcards: widget.category.flashcards),
+        builder: (context) => LearnPage(flashcards: category.flashcards),
       ),
     );
   }
@@ -85,25 +110,25 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.category.name),
+        title: Text(category.name),
         actions: [
           IconButton(icon: Icon(Icons.play_arrow), onPressed: _startLearning),
         ],
       ),
       body:
-          widget.category.flashcards.isEmpty
+          category.flashcards.isEmpty
               ? Center(
                 child: Text(
-                  'No flashcards added yet.',
+                  'Пока что карточки не добавлены.',
                   style: TextStyle(fontSize: 18),
                 ),
               )
               : ListView.separated(
                 padding: EdgeInsets.all(16),
-                itemCount: widget.category.flashcards.length,
+                itemCount: category.flashcards.length,
                 separatorBuilder: (_, __) => Divider(),
                 itemBuilder: (context, index) {
-                  final flashcard = widget.category.flashcards[index];
+                  final flashcard = category.flashcards[index];
                   return ListTile(
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 16,
@@ -127,7 +152,7 @@ class _CategoryPageState extends State<CategoryPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _addFlashcard,
         backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        foregroundColor: Colors.grey[200],
         child: Icon(Icons.add),
       ),
     );

@@ -1,42 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:isar/isar.dart';
 import '../models.dart';
 import 'category_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final Isar isar;
+  const HomePage({super.key, required this.isar});
 
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  List<Category> categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    // Query all categories from the Isar database.
+    final cats = await widget.isar.categories.where().findAll();
+    setState(() {
+      categories = cats;
+    });
+  }
+
   void _addCategory() {
     TextEditingController controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Add Category', style: TextStyle(color: Colors.indigo)),
+          title: Text(
+            'Добавить категорию',
+            style: TextStyle(color: Colors.indigo),
+          ),
           content: TextField(
             controller: controller,
             decoration: InputDecoration(
-              hintText: 'Category Name',
+              hintText: 'Название категории',
               border: OutlineInputBorder(),
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 if (controller.text.isNotEmpty) {
-                  setState(() {
-                    categories.add(
-                      Category(name: controller.text, flashcards: []),
-                    );
+                  final newCategory = Category()..name = controller.text;
+                  await widget.isar.writeTxn(() async {
+                    await widget.isar.categories.put(newCategory);
                   });
+                  _loadCategories();
                 }
                 Navigator.pop(context);
               },
-              child: Text('Add', style: TextStyle(color: Colors.indigo)),
+              child: Text('Добавить', style: TextStyle(color: Colors.indigo)),
             ),
           ],
         );
@@ -44,21 +65,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _deleteCategory(int index) {
-    setState(() {
-      categories.removeAt(index);
+  void _deleteCategory(Category category) async {
+    await widget.isar.writeTxn(() async {
+      await widget.isar.categories.delete(category.id);
     });
+    _loadCategories();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Flashcards'), centerTitle: true),
+      appBar: AppBar(title: Text('Категории карточек'), centerTitle: true),
       body:
           categories.isEmpty
               ? Center(
                 child: Text(
-                  'No categories added yet.',
+                  'Категории пока не добавлены.',
                   style: TextStyle(fontSize: 18),
                 ),
               )
@@ -86,15 +108,19 @@ class _HomePageState extends State<HomePage> {
                     ),
                     trailing: IconButton(
                       icon: Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => _deleteCategory(index),
+                      onPressed: () => _deleteCategory(cat),
                     ),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => CategoryPage(category: cat),
+                          builder:
+                              (context) => CategoryPage(
+                                category: cat,
+                                isar: widget.isar,
+                              ),
                         ),
-                      ).then((_) => setState(() {}));
+                      ).then((_) => _loadCategories());
                     },
                   );
                 },
@@ -102,7 +128,7 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _addCategory,
         backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        foregroundColor: Colors.grey[200],
         child: Icon(Icons.add),
       ),
     );

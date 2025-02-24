@@ -1,16 +1,17 @@
+import 'package:isar/isar.dart';
+
+part 'models.g.dart';
+
+@Collection()
+@Name("categories")
 class Category {
-  String name;
-  List<Flashcard> flashcards;
-
-  Category({required this.name, required this.flashcards});
+  Id id = Isar.autoIncrement;
+  late String name;
+  List<Flashcard> flashcards = [];
 }
 
+@Embedded()
 class Flashcard {
-  String question;
-  String answer;
-
-  Flashcard({required this.question, required this.answer});
+  late String question;
+  late String answer;
 }
-
-// A global list for categories (for simplicity).
-List<Category> categories = [];
