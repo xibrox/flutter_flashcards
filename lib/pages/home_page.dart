@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
+import 'package:provider/provider.dart';
 import '../models.dart';
 import 'category_page.dart';
+import 'settings_page.dart';
+import '../settings_model.dart';
 
 class HomePage extends StatefulWidget {
   final Isar isar;
@@ -21,7 +24,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadCategories() async {
-    // Query all categories from the Isar database.
     final cats = await widget.isar.categories.where().findAll();
     setState(() {
       categories = cats;
@@ -35,14 +37,26 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return AlertDialog(
           title: Text(
-            'Добавить категорию',
-            style: TextStyle(color: Colors.indigo),
+            Provider.of<SettingsModel>(context, listen: false).language == 'en'
+                ? 'Add Category'
+                : 'Добавить категорию',
+            style: TextStyle(
+              color:
+                  Provider.of<SettingsModel>(
+                    context,
+                    listen: false,
+                  ).primaryColor,
+            ),
           ),
           content: TextField(
             controller: controller,
             decoration: InputDecoration(
-              hintText: 'Название категории',
-              border: OutlineInputBorder(),
+              hintText:
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'Category Name'
+                      : 'Название категории',
+              border: const OutlineInputBorder(),
             ),
           ),
           actions: [
@@ -57,7 +71,19 @@ class _HomePageState extends State<HomePage> {
                 }
                 Navigator.pop(context);
               },
-              child: Text('Добавить', style: TextStyle(color: Colors.indigo)),
+              child: Text(
+                Provider.of<SettingsModel>(context, listen: false).language ==
+                        'en'
+                    ? 'Add'
+                    : 'Добавить',
+                style: TextStyle(
+                  color:
+                      Provider.of<SettingsModel>(
+                        context,
+                        listen: false,
+                      ).primaryColor,
+                ),
+              ),
             ),
           ],
         );
@@ -74,40 +100,62 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsModel>(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Категории карточек'), centerTitle: true),
+      appBar: AppBar(
+        title: Text(
+          settings.language == 'en'
+              ? 'Flashcards Categories'
+              : 'Категории карточек',
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
+        ],
+      ),
       body:
           categories.isEmpty
               ? Center(
                 child: Text(
-                  'Категории пока не добавлены.',
-                  style: TextStyle(fontSize: 18),
+                  settings.language == 'en'
+                      ? 'No categories added yet.'
+                      : 'Категории пока не добавлены.',
+                  style: const TextStyle(fontSize: 18),
                 ),
               )
               : ListView.separated(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 itemCount: categories.length,
-                separatorBuilder: (_, __) => Divider(),
+                separatorBuilder: (_, __) => const Divider(),
                 itemBuilder: (context, index) {
                   final cat = categories[index];
                   return ListTile(
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    tileColor: Colors.white,
+                    tileColor:
+                        settings.isDarkMode ? Colors.grey[800] : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                     title: Text(
                       cat.name,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     trailing: IconButton(
-                      icon: Icon(Icons.delete, color: Colors.redAccent),
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
                       onPressed: () => _deleteCategory(cat),
                     ),
                     onTap: () {
@@ -127,9 +175,7 @@ class _HomePageState extends State<HomePage> {
               ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addCategory,
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.grey[200],
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
     );
   }

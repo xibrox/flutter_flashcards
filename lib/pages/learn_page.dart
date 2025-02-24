@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:provider/provider.dart';
 import '../models.dart';
+import '../settings_model.dart';
 
 class LearnPage extends StatefulWidget {
   final List<Flashcard> flashcards;
@@ -49,7 +51,13 @@ class _LearnPageState extends State<LearnPage>
   Widget build(BuildContext context) {
     Flashcard currentFlashcard = widget.flashcards[currentIndex];
     return Scaffold(
-      appBar: AppBar(title: Text('Учеба')),
+      appBar: AppBar(
+        title: Text(
+          Provider.of<SettingsModel>(context, listen: false).language == 'en'
+              ? 'Learn'
+              : 'Учеба',
+        ),
+      ),
       body: Center(
         child: GestureDetector(
           onTap: _flipCard,
@@ -81,7 +89,8 @@ class _LearnPageState extends State<LearnPage>
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _nextCard,
-        backgroundColor: Colors.indigo,
+        backgroundColor:
+            Provider.of<SettingsModel>(context, listen: false).primaryColor,
         foregroundColor: Colors.grey[200],
         child: Icon(Icons.arrow_forward),
       ),
@@ -89,11 +98,13 @@ class _LearnPageState extends State<LearnPage>
   }
 
   Widget _buildCardContent(String text) {
+    final settings = Provider.of<SettingsModel>(context);
+
     return Container(
       width: MediaQuery.of(context).size.width * 0.8,
       height: 300,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: settings.isDarkMode ? Colors.grey[800] : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),

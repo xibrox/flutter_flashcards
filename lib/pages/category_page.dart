@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
+import 'package:provider/provider.dart';
 import '../models.dart';
 import 'learn_page.dart';
+import '../settings_model.dart';
 
 class CategoryPage extends StatefulWidget {
   final Category category;
@@ -37,8 +39,16 @@ class _CategoryPageState extends State<CategoryPage> {
       builder: (context) {
         return AlertDialog(
           title: Text(
-            'Добавить карточку',
-            style: TextStyle(color: Colors.indigo),
+            Provider.of<SettingsModel>(context, listen: false).language == 'en'
+                ? 'Add a card'
+                : 'Добавить карточку',
+            style: TextStyle(
+              color:
+                  Provider.of<SettingsModel>(
+                    context,
+                    listen: false,
+                  ).primaryColor,
+            ),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -47,7 +57,14 @@ class _CategoryPageState extends State<CategoryPage> {
                 TextField(
                   controller: questionController,
                   decoration: InputDecoration(
-                    hintText: 'Вопрос',
+                    hintText:
+                        Provider.of<SettingsModel>(
+                                  context,
+                                  listen: false,
+                                ).language ==
+                                'en'
+                            ? 'Question'
+                            : 'Вопрос',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -55,7 +72,14 @@ class _CategoryPageState extends State<CategoryPage> {
                 TextField(
                   controller: answerController,
                   decoration: InputDecoration(
-                    hintText: 'Ответ',
+                    hintText:
+                        Provider.of<SettingsModel>(
+                                  context,
+                                  listen: false,
+                                ).language ==
+                                'en'
+                            ? 'Answer'
+                            : 'Ответ',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -81,7 +105,19 @@ class _CategoryPageState extends State<CategoryPage> {
                 }
                 Navigator.pop(context);
               },
-              child: Text('Добавить', style: TextStyle(color: Colors.indigo)),
+              child: Text(
+                Provider.of<SettingsModel>(context, listen: false).language ==
+                        'en'
+                    ? 'Add'
+                    : 'Добавить',
+                style: TextStyle(
+                  color:
+                      Provider.of<SettingsModel>(
+                        context,
+                        listen: false,
+                      ).primaryColor,
+                ),
+              ),
             ),
           ],
         );
@@ -108,6 +144,8 @@ class _CategoryPageState extends State<CategoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsModel>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(category.name),
@@ -119,7 +157,10 @@ class _CategoryPageState extends State<CategoryPage> {
           category.flashcards.isEmpty
               ? Center(
                 child: Text(
-                  'Пока что карточки не добавлены.',
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'No cards have been added yet.'
+                      : 'Пока что карточки не добавлены.',
                   style: TextStyle(fontSize: 18),
                 ),
               )
@@ -134,7 +175,8 @@ class _CategoryPageState extends State<CategoryPage> {
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    tileColor: Colors.white,
+                    tileColor:
+                        settings.isDarkMode ? Colors.grey[800] : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -151,7 +193,8 @@ class _CategoryPageState extends State<CategoryPage> {
               ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addFlashcard,
-        backgroundColor: Colors.indigo,
+        backgroundColor:
+            Provider.of<SettingsModel>(context, listen: false).primaryColor,
         foregroundColor: Colors.grey[200],
         child: Icon(Icons.add),
       ),
