@@ -1,4 +1,4 @@
-name: iOS-ipa-build
+name: Build APK and IPA
 
 on:
   workflow_dispatch:
@@ -8,35 +8,67 @@ jobs:
     name: 🎉 iOS Build
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter for iOS
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           architecture: x64
-      - run: flutter pub get
-      
 
-      - run: pod repo update
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      - name: Update CocoaPods repo
+        run: pod repo update
         working-directory: ios
 
-      - run: flutter build ios --release --no-codesign
+      - name: Build iOS App (no codesign)
+        run: flutter build ios --release --no-codesign
 
-      - run: mkdir Payload
+      - name: Prepare IPA packaging
+        run: |
+          mkdir Payload
+          mv Runner.app Payload
         working-directory: build/ios/iphoneos
 
-      - run: mv Runner.app/ Payload
+      - name: Create IPA archive
+        run: zip -qq -r -9 MyApp.ipa Payload
         working-directory: build/ios/iphoneos
 
-      - name: Zip output
-        run: zip -qq -r -9 Flashcards.ipa Payload
-        working-directory: build/ios/iphoneos
-
-      - name: Upload binaries to release
+      - name: Upload iOS IPA to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/ios/iphoneos/Flashcards.ipa
+          file: build/ios/iphoneos/MyApp.ipa
           tag: v1.0.2
           overwrite: true
-          body: "This is third release"
+          body: "iOS release build"
+
+  build-android:
+    name: 🎉 Android Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter for Android
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload APK to Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/app/outputs/flutter-apk/app-release.apk
+          tag: v1.0.2
+          overwrite: true
+          body: "Android release build"
