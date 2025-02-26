@@ -20,15 +20,21 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   void initState() {
     super.initState();
-    // Use the category passed from the HomePage.
+    // Use the category passed from HomePage.
     category = widget.category;
   }
 
   Future<void> _updateCategory() async {
-    await widget.isar.writeTxn(() async {
-      await widget.isar.categories.put(category);
-    });
-    setState(() {});
+    try {
+      await widget.isar.writeTxn(() async {
+        await widget.isar.categories.put(category);
+      });
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating category: $e')));
+    }
   }
 
   void _addFlashcard() {
@@ -65,10 +71,10 @@ class _CategoryPageState extends State<CategoryPage> {
                                 'en'
                             ? 'Question'
                             : 'Вопрос',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 TextField(
                   controller: answerController,
                   decoration: InputDecoration(
@@ -80,7 +86,7 @@ class _CategoryPageState extends State<CategoryPage> {
                                 'en'
                             ? 'Answer'
                             : 'Ответ',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -125,11 +131,151 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  void _deleteFlashcard(int index) async {
-    final updatedFlashcards = List<Flashcard>.from(category.flashcards);
-    updatedFlashcards.removeAt(index);
-    category.flashcards = updatedFlashcards;
-    await _updateCategory();
+  Future<void> _deleteFlashcard(int index) async {
+    bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Text(
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'Confirm Deletion'
+                      : 'Подтвердите удаление',
+                ),
+                content: Text(
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'Are you sure you want to delete this card?'
+                      : 'Вы уверены, что хотите удалить эту карточку?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(
+                      Provider.of<SettingsModel>(
+                                context,
+                                listen: false,
+                              ).language ==
+                              'en'
+                          ? 'Cancel'
+                          : 'Отмена',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text(
+                      Provider.of<SettingsModel>(
+                                context,
+                                listen: false,
+                              ).language ==
+                              'en'
+                          ? 'Delete'
+                          : 'Удалить',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+        ) ??
+        false;
+    if (confirmed) {
+      final updatedFlashcards = List<Flashcard>.from(category.flashcards);
+      updatedFlashcards.removeAt(index);
+      category.flashcards = updatedFlashcards;
+      await _updateCategory();
+    }
+  }
+
+  void _editFlashcard(int index) {
+    final flashcard = category.flashcards[index];
+    TextEditingController questionController = TextEditingController(
+      text: flashcard.question,
+    );
+    TextEditingController answerController = TextEditingController(
+      text: flashcard.answer,
+    );
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            Provider.of<SettingsModel>(context, listen: false).language == 'en'
+                ? 'Edit Card'
+                : 'Редактировать карточку',
+            style: TextStyle(
+              color:
+                  Provider.of<SettingsModel>(
+                    context,
+                    listen: false,
+                  ).primaryColor,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: questionController,
+                  decoration: InputDecoration(
+                    hintText:
+                        Provider.of<SettingsModel>(
+                                  context,
+                                  listen: false,
+                                ).language ==
+                                'en'
+                            ? 'Question'
+                            : 'Вопрос',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: answerController,
+                  decoration: InputDecoration(
+                    hintText:
+                        Provider.of<SettingsModel>(
+                                  context,
+                                  listen: false,
+                                ).language ==
+                                'en'
+                            ? 'Answer'
+                            : 'Ответ',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                if (questionController.text.isNotEmpty &&
+                    answerController.text.isNotEmpty) {
+                  flashcard.question = questionController.text;
+                  flashcard.answer = answerController.text;
+                  await _updateCategory();
+                }
+                Navigator.pop(context);
+              },
+              child: Text(
+                Provider.of<SettingsModel>(context, listen: false).language ==
+                        'en'
+                    ? 'Update'
+                    : 'Обновить',
+                style: TextStyle(
+                  color:
+                      Provider.of<SettingsModel>(
+                        context,
+                        listen: false,
+                      ).primaryColor,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _startLearning() {
@@ -145,12 +291,14 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsModel>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(category.name),
         actions: [
-          IconButton(icon: Icon(Icons.play_arrow), onPressed: _startLearning),
+          IconButton(
+            icon: const Icon(Icons.play_arrow),
+            onPressed: _startLearning,
+          ),
         ],
       ),
       body:
@@ -161,32 +309,43 @@ class _CategoryPageState extends State<CategoryPage> {
                           'en'
                       ? 'No cards have been added yet.'
                       : 'Пока что карточки не добавлены.',
-                  style: TextStyle(fontSize: 18),
+                  style: const TextStyle(fontSize: 18),
                 ),
               )
               : ListView.separated(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 itemCount: category.flashcards.length,
-                separatorBuilder: (_, __) => Divider(),
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final flashcard = category.flashcards[index];
                   return ListTile(
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    tileColor:
-                        settings.isDarkMode ? Colors.grey[800] : Colors.white,
+                    tileColor: Provider.of<SettingsModel>(context).cardColor,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     title: Text(
                       flashcard.question,
-                      style: TextStyle(fontSize: 18),
+                      style: const TextStyle(fontSize: 18),
                     ),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => _deleteFlashcard(index),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.grey),
+                          onPressed: () => _editFlashcard(index),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () => _deleteFlashcard(index),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -196,7 +355,7 @@ class _CategoryPageState extends State<CategoryPage> {
         backgroundColor:
             Provider.of<SettingsModel>(context, listen: false).primaryColor,
         foregroundColor: Colors.grey[200],
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
     );
   }

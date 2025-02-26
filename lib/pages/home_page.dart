@@ -8,7 +8,7 @@ import '../settings_model.dart';
 
 class HomePage extends StatefulWidget {
   final Isar isar;
-  const HomePage({super.key, required this.isar});
+  const HomePage({Key? key, required this.isar}) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -16,6 +16,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   List<Category> categories = [];
+  bool isLoading = false;
+  String? errorMessage;
 
   @override
   void initState() {
@@ -24,10 +26,24 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadCategories() async {
-    final cats = await widget.isar.categories.where().findAll();
     setState(() {
-      categories = cats;
+      isLoading = true;
+      errorMessage = null;
     });
+    try {
+      final cats = await widget.isar.categories.where().findAll();
+      setState(() {
+        categories = cats;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error loading categories: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   void _addCategory() {
@@ -64,10 +80,16 @@ class _HomePageState extends State<HomePage> {
               onPressed: () async {
                 if (controller.text.isNotEmpty) {
                   final newCategory = Category()..name = controller.text;
-                  await widget.isar.writeTxn(() async {
-                    await widget.isar.categories.put(newCategory);
-                  });
-                  _loadCategories();
+                  try {
+                    await widget.isar.writeTxn(() async {
+                      await widget.isar.categories.put(newCategory);
+                    });
+                    _loadCategories();
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error adding category: $e')),
+                    );
+                  }
                 }
                 Navigator.pop(context);
               },
@@ -92,10 +114,165 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _deleteCategory(Category category) async {
-    await widget.isar.writeTxn(() async {
-      await widget.isar.categories.delete(category.id);
-    });
-    _loadCategories();
+    bool confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Text(
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'Confirm Deletion'
+                      : 'Подтвердите удаление',
+                ),
+                content: Text(
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'Are you sure you want to delete this category?'
+                      : 'Вы уверены, что хотите удалить эту категорию?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(
+                      Provider.of<SettingsModel>(
+                                context,
+                                listen: false,
+                              ).language ==
+                              'en'
+                          ? 'Cancel'
+                          : 'Отмена',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text(
+                      Provider.of<SettingsModel>(
+                                context,
+                                listen: false,
+                              ).language ==
+                              'en'
+                          ? 'Delete'
+                          : 'Удалить',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+        ) ??
+        false;
+    if (confirmed) {
+      try {
+        await widget.isar.writeTxn(() async {
+          await widget.isar.categories.delete(category.id);
+        });
+        _loadCategories();
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting category: $e')));
+      }
+    }
+  }
+
+  void _editCategory(Category category) {
+    TextEditingController controller = TextEditingController(
+      text: category.name,
+    );
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            Provider.of<SettingsModel>(context, listen: false).language == 'en'
+                ? 'Edit Category'
+                : 'Редактировать категорию',
+            style: TextStyle(
+              color:
+                  Provider.of<SettingsModel>(
+                    context,
+                    listen: false,
+                  ).primaryColor,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText:
+                  Provider.of<SettingsModel>(context, listen: false).language ==
+                          'en'
+                      ? 'Category Name'
+                      : 'Название категории',
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                if (controller.text.isNotEmpty) {
+                  category.name = controller.text;
+                  try {
+                    await widget.isar.writeTxn(() async {
+                      await widget.isar.categories.put(category);
+                    });
+                    _loadCategories();
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error updating category: $e')),
+                    );
+                  }
+                }
+                Navigator.pop(context);
+              },
+              child: Text(
+                Provider.of<SettingsModel>(context, listen: false).language ==
+                        'en'
+                    ? 'Update'
+                    : 'Обновить',
+                style: TextStyle(
+                  color:
+                      Provider.of<SettingsModel>(
+                        context,
+                        listen: false,
+                      ).primaryColor,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState(SettingsModel settings) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.add_circle_outline,
+            size: 80,
+            color: settings.primaryColor,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            settings.language == 'en'
+                ? 'No categories yet!'
+                : 'Пока нет категорий!',
+            style: const TextStyle(fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _addCategory,
+            child: Text(
+              settings.language == 'en'
+                  ? 'Create First Category'
+                  : 'Создать первую категорию',
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -122,19 +299,16 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body:
-          categories.isEmpty
-              ? Center(
-                child: Text(
-                  settings.language == 'en'
-                      ? 'No categories added yet.'
-                      : 'Категории пока не добавлены.',
-                  style: const TextStyle(fontSize: 18),
-                ),
-              )
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : errorMessage != null
+              ? Center(child: Text(errorMessage!))
+              : categories.isEmpty
+              ? _buildEmptyState(settings)
               : ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: categories.length,
-                separatorBuilder: (_, __) => const Divider(),
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final cat = categories[index];
                   return ListTile(
@@ -142,10 +316,9 @@ class _HomePageState extends State<HomePage> {
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    tileColor:
-                        settings.isDarkMode ? Colors.grey[800] : Colors.white,
+                    tileColor: Provider.of<SettingsModel>(context).cardColor,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     title: Text(
                       cat.name,
@@ -154,9 +327,21 @@ class _HomePageState extends State<HomePage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.redAccent),
-                      onPressed: () => _deleteCategory(cat),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.grey),
+                          onPressed: () => _editCategory(cat),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.redAccent,
+                          ),
+                          onPressed: () => _deleteCategory(cat),
+                        ),
+                      ],
                     ),
                     onTap: () {
                       Navigator.push(

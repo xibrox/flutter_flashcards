@@ -3,9 +3,9 @@ import 'package:provider/provider.dart';
 import '../settings_model.dart';
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({Key? key}) : super(key: key);
 
-  // Define some colors the user can choose from.
+  // Available colors for selection.
   final List<Color> availableColors = const [
     Colors.indigo,
     Colors.blue,
@@ -38,15 +38,18 @@ class SettingsPage extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 5,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
             children:
                 availableColors.map((color) {
                   return GestureDetector(
                     onTap: () => settings.updateAppBarColor(color),
                     child: CircleAvatar(
                       backgroundColor: color,
-                      radius: 20,
                       child:
                           settings.primaryColor == color
                               ? const Icon(Icons.check, color: Colors.white)
@@ -62,13 +65,15 @@ class SettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ListTile(
-            title: Text('English'),
+            leading: const Text('🇺🇸', style: TextStyle(fontSize: 24)),
+            title: const Text('English'),
             trailing:
                 settings.language == 'en' ? const Icon(Icons.check) : null,
             onTap: () => settings.updateLanguage('en'),
           ),
           ListTile(
-            title: Text('Русский'),
+            leading: const Text('🇷🇺', style: TextStyle(fontSize: 24)),
+            title: const Text('Русский'),
             trailing:
                 settings.language == 'ru' ? const Icon(Icons.check) : null,
             onTap: () => settings.updateLanguage('ru'),

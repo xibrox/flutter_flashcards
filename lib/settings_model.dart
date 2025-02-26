@@ -10,6 +10,9 @@ class SettingsModel extends ChangeNotifier {
   Color get primaryColor => _primaryColor;
   String get language => _language;
 
+  // New getter for card color
+  Color get cardColor => _isDarkMode ? Colors.grey[800]! : Colors.white;
+
   SettingsModel() {
     _loadSettings();
   }
@@ -18,7 +21,6 @@ class SettingsModel extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('darkMode') ?? false;
     _language = prefs.getString('language') ?? 'en';
-    // Store color as an integer value.
     int? primaryColorValue = prefs.getInt('primaryColor');
     if (primaryColorValue != null) {
       _primaryColor = Color(primaryColorValue);

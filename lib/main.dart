@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -25,7 +24,7 @@ Future<void> main() async {
 
 class FlashcardsApp extends StatelessWidget {
   final Isar isar;
-  const FlashcardsApp({super.key, required this.isar});
+  const FlashcardsApp({Key? key, required this.isar}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -45,16 +44,21 @@ class FlashcardsApp extends StatelessWidget {
                 settings.isDarkMode ? Colors.grey[900] : Colors.grey[100],
             appBarTheme: AppBarTheme(
               backgroundColor: settings.primaryColor,
-              foregroundColor:
-                  settings.isDarkMode ? Colors.white : Colors.grey[200],
+              foregroundColor: Colors.white,
             ),
             floatingActionButtonTheme: FloatingActionButtonThemeData(
               backgroundColor: settings.primaryColor,
-              foregroundColor:
-                  settings.isDarkMode ? Colors.white : Colors.grey[200],
+              foregroundColor: Colors.white,
+            ),
+            cardColor: settings.isDarkMode ? Colors.grey[800] : Colors.white,
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ),
-          // Optionally, set the locale if you add more robust localization:
           locale: Locale(settings.language),
           home: HomePage(isar: isar),
         );
