@@ -324,7 +324,7 @@ class _HomePageState extends State<HomePage> {
                       cat.name,
                       style: const TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     trailing: Row(

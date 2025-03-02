@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -40,6 +41,7 @@ class FlashcardsApp extends StatelessWidget {
             brightness:
                 settings.isDarkMode ? Brightness.dark : Brightness.light,
             primaryColor: settings.primaryColor,
+            textTheme: GoogleFonts.rubikTextTheme(Theme.of(context).textTheme),
             scaffoldBackgroundColor:
                 settings.isDarkMode ? Colors.grey[900] : Colors.grey[100],
             appBarTheme: AppBarTheme(

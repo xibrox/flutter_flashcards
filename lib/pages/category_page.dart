@@ -290,7 +290,6 @@ class _CategoryPageState extends State<CategoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsModel>(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(category.name),
